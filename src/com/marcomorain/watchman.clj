@@ -9,15 +9,21 @@
           [java.nio.channels Channels]
           [java.nio CharBuffer]))
 
-(defn execute-command [watchman command]
+
+;; todo type annotation
+(defn read-response [reader]
+  (parse-string (.readLine reader) true))
+
+;; todo type annotation
+(defn write-command [writer command]
   (let [json (str (generate-string command) \newline)]
-    (doto (:writer watchman)
+    (doto writer
       (.print json)
-      (.flush)))
-  (let [response (-> watchman
-                     :reader
-                     .readLine
-                     (parse-string true))]
+      (.flush))))
+
+(defn execute-command [watchman command]
+  (write-command (:writer watchman) command)
+  (let [response (read-response (:reader watchman))]
     (when (contains? response :error)
       (throw (IllegalArgumentException. (:error response))))
     response))
@@ -37,7 +43,14 @@
          channel (UnixSocketChannel/open address)
          writer (PrintWriter. (Channels/newOutputStream channel))
          input (InputStreamReader. (Channels/newInputStream channel))
-         reader (BufferedReader. input)]
+         reader (BufferedReader. input)
+         thread (.start  (Thread. (fn []
+                                    :
+
+
+                                    )))
+
+         ]
      (infof "Connected to %s" sockname)
      {:reader reader
       :writer writer})))
@@ -54,3 +67,6 @@
 
 (defn version [watchman]
   (execute-command watchman ["version"]))
+
+(defn watch [watchman path]
+  (execute-command watchman ["watch" path]))
