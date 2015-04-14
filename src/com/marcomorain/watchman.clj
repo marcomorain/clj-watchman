@@ -44,15 +44,13 @@
          writer (PrintWriter. (Channels/newOutputStream channel))
          input (InputStreamReader. (Channels/newInputStream channel))
          reader (BufferedReader. input)
-         thread (.start  (Thread. (fn []
-                                    :
-
-
-                                    )))
-
-         ]
+         thread (delay (.start
+                  (Thread. (fn []
+                             (comment (infof "got response: %s" (read-response reader)))
+                             (recur)))))]
      (infof "Connected to %s" sockname)
-     {:reader reader
+     {:thread thread
+      :reader reader
       :writer writer})))
 
 ;; Commands - make these from a macro
