@@ -17,13 +17,14 @@
 ;; todo type annotation
 (defn write-command [writer command]
   (let [json (str (generate-string command) \newline)]
+    (infof "Writing command %s" json)
     (doto writer
       (.print json)
       (.flush))))
 
 (defn execute-command [watchman command]
   (write-command (:writer watchman) command)
-  (let [response (read-response (:reader watchman))]
+  (comment let [response (read-response (:reader watchman))]
     (when (contains? response :error)
       (throw (IllegalArgumentException. (:error response))))
     response))
@@ -44,10 +45,14 @@
          writer (PrintWriter. (Channels/newOutputStream channel))
          input (InputStreamReader. (Channels/newInputStream channel))
          reader (BufferedReader. input)
-         thread (delay (.start
+         thread (doto
                   (Thread. (fn []
-                             (comment (infof "got response: %s" (read-response reader)))
-                             (recur)))))]
+                             (infof "Thread started")
+                             (loop []
+                               (infof "got response: %s"  (read-response reader))
+                               (recur))))
+                  (.setDaemon true)
+                  (.start))]
      (infof "Connected to %s" sockname)
      {:thread thread
       :reader reader
