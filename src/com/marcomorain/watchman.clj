@@ -6,28 +6,38 @@
   (use [clojure.java.io :as io])
   (import [jnr.unixsocket UnixSocketAddress UnixSocketChannel]
           [java.io PrintWriter InputStreamReader BufferedReader]
+          [java.util.concurrent TimeUnit LinkedBlockingQueue]
           [java.nio.channels Channels]
           [java.nio.charset Charset]
           [java.nio CharBuffer ByteBuffer]))
+
 
 ;; todo type annotation
 (defn read-response [reader]
   (parse-string (.readLine reader) true))
 
-
 (defn message-type [message]
   (cond
-    (:error message) :error))
+    (:log message) :log
+    (:subscription message) :subscription))
 
 (defmulti on-message message-type)
 
-(defmethod on-message :error
+(defmethod on-message :log
   [message]
-  (infof "Error message: %s" message))
+  (infof "Log message: %s" message)
+  nil)
+
+(defmethod on-message :subscription
+  [message]
+  ;; handle files
+  (infof "subscription message: %s" message)
+  nil)
 
 (defmethod on-message :default
   [message]
-  (infof "Normal message %s" message))
+  (infof "Normal message %s" message)
+  message)
 
 ;; todo type annotation
 ;; todo: don't make a new byte buffer on each command
@@ -37,10 +47,14 @@
         byte-buffer (ByteBuffer/wrap json-bytes)
         _ (infof "Writing command %s" json)
         n (.write writer byte-buffer)]
-    (infof "wrote %d bytes" n)))
+    ;; Assert n here
+    nil))
 
 (defn execute-command [watchman command]
-  (write-command (:channel watchman) command))
+  (write-command (:channel watchman) command)
+  (.poll (:queue watchman) 5 TimeUnit/SECONDS)
+
+  )
 
 (defn get-sockname []
   (-> (sh/sh "watchman" "get-sockname")
@@ -48,29 +62,35 @@
       (parse-string true)
       :sockname))
 
-(defn listener [reader]
-  (infof "Listener started")
+(defn- message-reader [queue reader]
   (fn []
-    (on-message (read-response reader))
+    (when-let [message (#'on-message (read-response reader))]
+      (.put queue message))
     (recur)))
+
+(defn- connect-to-channel [sockname]
+  (let [path (io/file sockname)
+        address (UnixSocketAddress. path)
+        channel (UnixSocketChannel/open address)]
+  channel))
+
+(def ^:dynamic *max-queue-length* 4)
 
 (defn connect
   ([]
    (connect (get-sockname)))
   ([sockname]
-   (let [path (io/file sockname)
-         address (UnixSocketAddress. path)
-         channel (UnixSocketChannel/open address)
-         input (InputStreamReader. (Channels/newInputStream channel))
-         reader (BufferedReader. input)
+   (let [channel (connect-to-channel sockname)
+         ;; TODO - use reader() here
+         reader (reader (InputStreamReader. (Channels/newInputStream channel)))
+         queue (LinkedBlockingQueue. *max-queue-length*)
          thread (doto
-                  (Thread. (listener reader))
+                  (Thread. (message-reader queue reader))
                   (.setDaemon true)
                   (.start))]
      (infof "Connected to %s" sockname)
-     {:thread thread
-      :reader reader
-      :channel channel})))
+     {:channel channel
+      :queue queue })))
 
 ;; Commands - make these from a macro
 (defn get-config [watchman path]
