@@ -1,34 +1,27 @@
 (ns com.marcomorain.watchman
   (require [clojure.java.shell :as sh]
            [cheshire.core :refer :all]
-           [clojure.tools.logging :refer (infof)]
-           )
+           [clojure.tools.logging :refer (infof)])
   (use [clojure.java.io :as io])
   (import [jnr.unixsocket UnixSocketAddress UnixSocketChannel]
           [java.io PrintWriter InputStreamReader BufferedReader]
           [java.nio.channels Channels]
           [java.nio.charset Charset]
-          [java.nio CharBuffer
-           ByteBuffer
-           ]))
-
+          [java.nio CharBuffer ByteBuffer]))
 
 ;; todo type annotation
 (defn read-response [reader]
   (parse-string (.readLine reader) true))
 
 ;; todo type annotation
+;; todo: don't make a new byte buffer on each command
 (defn write-command [writer command]
   (let [json (str (generate-string command) \newline)
         json-bytes (.getBytes json (Charset/forName "ISO-8859-1"))
         byte-buffer (ByteBuffer/wrap json-bytes)
         _ (infof "Writing command %s" json)
-        n (.write writer byte-buffer)
-        ]
-    (infof "wrote %d bytes" n)
-    (comment (doto writer
-               (.print json)
-               (.flush)))))
+        n (.write writer byte-buffer)]
+    (infof "wrote %d bytes" n)))
 
 (defn execute-command [watchman command]
   (write-command (:channel watchman) command)
@@ -56,7 +49,6 @@
    (let [path (io/file sockname)
          address (UnixSocketAddress. path)
          channel (UnixSocketChannel/open address)
-         ;writer (Channels/newOutputStream channel))
          input (InputStreamReader. (Channels/newInputStream channel))
          reader (BufferedReader. input)
          thread (doto
@@ -66,10 +58,7 @@
      (infof "Connected to %s" sockname)
      {:thread thread
       :reader reader
-      ;:writer writer
-      :channel channel
-
-      })))
+      :channel channel})))
 
 ;; Commands - make these from a macro
 (defn get-config [watchman path]
@@ -81,8 +70,17 @@
 (defn log-level [watchman level]
   (execute-command watchman ["log-level" level]))
 
+(defn subscribe [watchman path name sub]
+  (execute-command watchman ["subscribe" path name sub]))
+
+(defn unsubscribe [watchman path name]
+  (execute-command watchman ["unsubscribe" path name]))
+
 (defn version [watchman]
   (execute-command watchman ["version"]))
 
 (defn watch [watchman path]
   (execute-command watchman ["watch" path]))
+
+(defn watch-list [watchman]
+  (execute-command watchman ["watch-list"]))
