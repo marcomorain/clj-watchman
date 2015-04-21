@@ -7,7 +7,10 @@
   (import [jnr.unixsocket UnixSocketAddress UnixSocketChannel]
           [java.io PrintWriter InputStreamReader BufferedReader]
           [java.nio.channels Channels]
-          [java.nio CharBuffer]))
+          [java.nio.charset Charset]
+          [java.nio CharBuffer
+           ByteBuffer
+           ]))
 
 
 ;; todo type annotation
@@ -16,24 +19,35 @@
 
 ;; todo type annotation
 (defn write-command [writer command]
-  (let [json (str (generate-string command) \newline)]
-    (infof "Writing command %s" json)
-    (doto writer
-      (.print json)
-      (.flush))))
+  (let [json (str (generate-string command) \newline)
+        json-bytes (.getBytes json (Charset/forName "ISO-8859-1"))
+        byte-buffer (ByteBuffer/wrap json-bytes)
+        _ (infof "Writing command %s" json)
+        n (.write writer byte-buffer)
+        ]
+    (infof "wrote %d bytes" n)
+    (comment (doto writer
+               (.print json)
+               (.flush)))))
 
 (defn execute-command [watchman command]
-  (write-command (:writer watchman) command)
+  (write-command (:channel watchman) command)
   (comment let [response (read-response (:reader watchman))]
     (when (contains? response :error)
       (throw (IllegalArgumentException. (:error response))))
     response))
 
-(defn- get-sockname []
+(defn get-sockname []
   (-> (sh/sh "watchman" "get-sockname")
       :out
       (parse-string true)
       :sockname))
+
+(defn listener [reader]
+  (infof "Listener started")
+  (fn []
+    (infof "got response: %s"  (read-response reader))
+    (recur)))
 
 (defn connect
   ([]
@@ -42,21 +56,20 @@
    (let [path (io/file sockname)
          address (UnixSocketAddress. path)
          channel (UnixSocketChannel/open address)
-         writer (PrintWriter. (Channels/newOutputStream channel))
+         ;writer (Channels/newOutputStream channel))
          input (InputStreamReader. (Channels/newInputStream channel))
          reader (BufferedReader. input)
          thread (doto
-                  (Thread. (fn []
-                             (infof "Thread started")
-                             (loop []
-                               (infof "got response: %s"  (read-response reader))
-                               (recur))))
+                  (Thread. (listener reader))
                   (.setDaemon true)
                   (.start))]
      (infof "Connected to %s" sockname)
      {:thread thread
       :reader reader
-      :writer writer})))
+      ;:writer writer
+      :channel channel
+
+      })))
 
 ;; Commands - make these from a macro
 (defn get-config [watchman path]

@@ -2,6 +2,6 @@
   (:require [clojure.test :refer :all]
             [com.marcomorain.watchman :refer :all]))
 
-(deftest a-test
+(deftest can-send-a-command
   (testing "FIXME, I fail."
     (is (= 1 1))))
