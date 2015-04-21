@@ -1,4 +1,5 @@
 (ns com.marcomorain.watchman
+  (:refer-clojure :exclude [find])
   (require [clojure.java.shell :as sh]
            [cheshire.core :refer :all]
            [clojure.tools.logging :refer (infof)])
@@ -13,6 +14,21 @@
 (defn read-response [reader]
   (parse-string (.readLine reader) true))
 
+
+(defn message-type [message]
+  (cond
+    (:error message) :error))
+
+(defmulti on-message message-type)
+
+(defmethod on-message :error
+  [message]
+  (infof "Error message: %s" message))
+
+(defmethod on-message :default
+  [message]
+  (infof "Normal message %s" message))
+
 ;; todo type annotation
 ;; todo: don't make a new byte buffer on each command
 (defn write-command [writer command]
@@ -24,11 +40,7 @@
     (infof "wrote %d bytes" n)))
 
 (defn execute-command [watchman command]
-  (write-command (:channel watchman) command)
-  (comment let [response (read-response (:reader watchman))]
-    (when (contains? response :error)
-      (throw (IllegalArgumentException. (:error response))))
-    response))
+  (write-command (:channel watchman) command))
 
 (defn get-sockname []
   (-> (sh/sh "watchman" "get-sockname")
@@ -39,7 +51,7 @@
 (defn listener [reader]
   (infof "Listener started")
   (fn []
-    (infof "got response: %s"  (read-response reader))
+    (on-message (read-response reader))
     (recur)))
 
 (defn connect
@@ -66,6 +78,12 @@
 
 (defn clock [watchman path]
   (execute-command watchman ["clock" path]))
+
+(defn find [watchman path & patterns]
+  (execute-command watchman (list* "find" path patterns)))
+
+(defn log [watchman level log]
+  (execute-command watchman ["log" level log]))
 
 (defn log-level [watchman level]
   (execute-command watchman ["log-level" level]))
