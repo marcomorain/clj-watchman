@@ -11,33 +11,16 @@
           [java.nio.charset Charset]
           [java.nio CharBuffer ByteBuffer]))
 
-
 ;; todo type annotation
 (defn read-response [reader]
   (parse-string (.readLine reader) true))
 
-(defn message-type [message]
+(defn on-message
+  [queue message f]
   (cond
-    (:log message) :log
-    (:subscription message) :subscription))
-
-(defmulti on-message message-type)
-
-(defmethod on-message :log
-  [message]
-  (infof "Log message: %s" message)
-  nil)
-
-(defmethod on-message :subscription
-  [message]
-  ;; handle files
-  (infof "subscription message: %s" message)
-  nil)
-
-(defmethod on-message :default
-  [message]
-  (infof "Normal message %s" message)
-  message)
+    (:log message) (infof "Log message: %s" message)
+    (:subscription message) (f message)
+    :else (.put queue message)))
 
 ;; todo type annotation
 ;; todo: don't make a new byte buffer on each command
@@ -52,20 +35,11 @@
 
 (defn execute-command [watchman command]
   (write-command (:channel watchman) command)
-  (.poll (:queue watchman) 5 TimeUnit/SECONDS)
+  (.poll (:queue watchman) 5 TimeUnit/SECONDS))
 
-  )
-
-(defn get-sockname []
-  (-> (sh/sh "watchman" "get-sockname")
-      :out
-      (parse-string true)
-      :sockname))
-
-(defn- message-reader [queue reader]
+(defn- message-reader [queue reader f]
   (fn []
-    (when-let [message (#'on-message (read-response reader))]
-      (.put queue message))
+    (on-message queue (read-response reader) f)
     (recur)))
 
 (defn- connect-to-channel [sockname]
@@ -77,20 +51,27 @@
 (def ^:dynamic *max-queue-length* 4)
 
 (defn connect
-  ([]
-   (connect (get-sockname)))
-  ([sockname]
+  ([f]
+   (connect (get-sockname) f))
+  ([sockname f]
    (let [channel (connect-to-channel sockname)
          ;; TODO - use reader() here
          reader (reader (InputStreamReader. (Channels/newInputStream channel)))
          queue (LinkedBlockingQueue. *max-queue-length*)
          thread (doto
-                  (Thread. (message-reader queue reader))
+                  (Thread. (message-reader queue reader f))
                   (.setDaemon true)
                   (.start))]
      (infof "Connected to %s" sockname)
      {:channel channel
       :queue queue })))
+
+;; Special command - needed to connect
+(defn get-sockname []
+  (-> (sh/sh "watchman" "get-sockname")
+      :out
+      (parse-string true)
+      :sockname))
 
 ;; Commands - make these from a macro
 (defn get-config [watchman path]
