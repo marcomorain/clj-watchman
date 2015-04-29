@@ -11,10 +11,6 @@
           [java.nio.charset Charset]
           [java.nio CharBuffer ByteBuffer]))
 
-;; todo type annotation
-(defn read-response [reader]
-  (parse-string (.readLine reader) true))
-
 (defn on-message
   [queue message f]
   (cond
@@ -39,14 +35,16 @@
 
 (defn- message-reader [queue reader f]
   (fn []
-    (on-message queue (read-response reader) f)
+    (on-message queue
+                (parse-string (.readLine reader) true)
+                f)
     (recur)))
 
 (defn- connect-to-channel [sockname]
-  (let [path (io/file sockname)
-        address (UnixSocketAddress. path)
-        channel (UnixSocketChannel/open address)]
-  channel))
+  (-> sockname
+      io/file
+      UnixSocketAddress.
+      UnixSocketChannel/open))
 
 (def ^:dynamic *max-queue-length* 4)
 
@@ -55,16 +53,20 @@
    (connect (get-sockname) f))
   ([sockname f]
    (let [channel (connect-to-channel sockname)
-         ;; TODO - use reader() here
-         reader (reader (InputStreamReader. (Channels/newInputStream channel)))
+         reader (-> channel
+                    Channels/newInputStream
+                    InputStreamReader.
+                    reader)
          queue (LinkedBlockingQueue. *max-queue-length*)
+         ;; TODO: function to close thread
          thread (doto
                   (Thread. (message-reader queue reader f))
                   (.setDaemon true)
                   (.start))]
      (infof "Connected to %s" sockname)
      {:channel channel
-      :queue queue })))
+      :queue queue
+      :thread thread})))
 
 ;; Special command - needed to connect
 (defn get-sockname []
