@@ -1,5 +1,6 @@
 (ns com.marcomorain.watchman-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.string :as str]
+            [clojure.test :refer :all]
             [clojure.java.shell :as sh]
             [com.marcomorain.watchman :as w]))
 
@@ -14,13 +15,19 @@
     (is (= {:version "3.1.0"}
            (w/execute-command s ["version"])))))
 
-
-(comment
-  (require '[com.marcomorain.watchman :as w] :reload)
-  )
+(deftest can-call-functions
+  (let [pwd (-> "pwd"
+                sh/sh
+                :out
+                str/trim)
+        s (w/connect)]
+    (is (= pwd (:watch (w/watch s pwd))))
+    (is (re-matches #"c:[0-9:]*" (:clock (w/clock s pwd))))))
 
 (comment
   ;; Check output:
+  (require '[com.marcomorain.watchman :as w] :reload)
+  (def s (w/connect))
   (w/execute-command s ["log-level" "debug"])
   (w/execute-command s ["log-level" "error"])
 
