@@ -12,7 +12,9 @@
           [java.nio.charset Charset]
           [java.nio CharBuffer ByteBuffer]))
 
-(defn str->byte-buffer  [s]
+(defn str->byte-buffer
+  "Convert the given string to a ByteBuffer"
+  [s]
   (ByteBuffer/wrap (.getBytes s (Charset/forName "ISO-8859-1"))))
 
 (defn write-command [writer command]
@@ -46,8 +48,10 @@
                     Channels/newInputStream
                     InputStreamReader.
                     reader)
-         thread (doto (Thread. (fn [] (doseq [line (line-seq reader)]
-                                        (pprint (parse-string line true)))))
+         thread (doto
+                  (Thread.
+                    (fn [] (doseq [line (line-seq reader)]
+                             (pprint (parse-string line true)))))
                   (.setDaemon true)
                   (.start))]
      (infof "Connected to %s" sockname)

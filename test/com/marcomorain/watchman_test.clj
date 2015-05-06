@@ -15,12 +15,11 @@
            (w/execute-command s ["version"])))))
 
 
-(comment
-  (require '[com.marcomorain.watchman :as w] :reload)
-  )
 
 (comment
   ;; Check output:
+  (require '[com.marcomorain.watchman :as w] :reload)
+  (def s (w/connect))
   (w/execute-command s ["log-level" "debug"])
   (w/execute-command s ["log-level" "error"])
 
