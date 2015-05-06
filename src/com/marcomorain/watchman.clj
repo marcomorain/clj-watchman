@@ -2,7 +2,8 @@
   (:refer-clojure :exclude [find])
   (require [clojure.java.shell :as sh]
            [cheshire.core :refer :all]
-           [clojure.tools.logging :refer (infof debugf)])
+           [clojure.tools.logging :refer (infof debugf)]
+           [clojure.pprint :refer (pprint)] )
   (use [clojure.java.io :as io])
   (import [jnr.unixsocket UnixSocketAddress UnixSocketChannel]
           [java.io PrintWriter InputStreamReader BufferedReader]
@@ -18,12 +19,7 @@
       (.flush))))
 
 (defn execute-command [watchman command]
-  (write-command (:writer watchman) command)
-  (-> watchman
-     :reader
-     line-seq
-     first
-     (parse-string true)))
+  (write-command (:writer watchman) command))
 
 (defn- connect-to-channel [sockname]
   (-> sockname
@@ -50,7 +46,11 @@
                     reader)
          writer (-> channel
                     Channels/newOutputStream
-                    PrintWriter.)]
+                    PrintWriter.)
+         thread (doto (Thread. (fn [] (doseq [line (line-seq reader)]
+                                        (pprint (parse-string line true)))))
+                  (.setDaemon true)
+                  (.start))]
      (infof "Connected to %s" sockname)
      {:reader reader
       :writer writer })))
