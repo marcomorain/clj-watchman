@@ -38,11 +38,14 @@
       :sockname))
 
 (defn result-reader [reader queue]
+  ;; The Java thread constructor expects a function with
+  ;; zero arguments so we close over reader and queue
   (fn []
     (doseq [line (line-seq reader)
             :let [message (parse-string line true)]]
       (infof "msg: %s" message)
       (cond
+        ;; Dispatch based on message type
         (:log message) (infof "Log: %s" message)
         (:subscription message) (infof "Subscription: %s" message)
         :else (.put queue message)))))
