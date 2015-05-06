@@ -44,6 +44,7 @@
     (doseq [line (line-seq reader)
             :let [message (parse-string line true)]]
       (cond
+        ;; Dispatch based on message type
         (:log message) (infof "Log: %s" message)
         (:subscription message) (infof "Subscription: %s" message)
         :else (.put queue message)))))
