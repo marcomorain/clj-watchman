@@ -5,7 +5,8 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :repositories {"sonatype-oss-public"
                  "https://oss.sonatype.org/content/groups/public/"}
-  :plugins [[lein-test-out "0.3.1" :exclusions [org.clojure/clojure]]]
+  :plugins [[lein-test-out "0.3.1" :exclusions [org.clojure/clojure]]
+            [lein-cloverage "1.0.3"]]
   :dependencies [[org.clojure/clojure "1.6.0"]
                  [cheshire "5.4.0"]
                  [com.github.jnr/jnr-unixsocket "0.6"]
