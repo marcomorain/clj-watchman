@@ -14,14 +14,6 @@
     (is (= {:version "3.1.0"}
            (w/execute-command s ["version"])))))
 
-
-(comment
-  (require '[com.marcomorain.watchman :as w] :reload)
-  )
-
 (comment
   ;; Check output:
-  (w/execute-command s ["log-level" "debug"])
-  (w/execute-command s ["log-level" "error"])
-
-  )
+  (w/execute-command s ["log-level" "debug"]))
