@@ -1,0 +1,7 @@
+dependencies:
+  pre:
+    - git clone https://github.com/facebook/watchman.git
+    - ./autogen.sh: {pwd: watchman}
+    - ./configure: {pwd: watchman}
+    - make: {pwd: watchman}
+    - sudo make install: {pwd: watchman}
