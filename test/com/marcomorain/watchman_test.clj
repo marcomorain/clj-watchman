@@ -21,4 +21,8 @@
   (w/execute-command s ["log-level" "debug"])
 
 
+  ;; http://bugs.jython.org/issue1744567
+  ;; Java NIO channels - cannot read & write to the
+  ;; same channel :(
+
   )

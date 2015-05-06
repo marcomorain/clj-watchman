@@ -47,8 +47,10 @@
          writer (-> channel
                     Channels/newOutputStream
                     PrintWriter.)
-         thread (doto (Thread. (fn [] (doseq [line (line-seq reader)]
-                                        (pprint (parse-string line true)))))
+         thread (doto
+                  (Thread.
+                    (fn [] (doseq [line (line-seq reader)]
+                             (pprint (parse-string line true)))))
                   (.setDaemon true)
                   (.start))]
      (infof "Connected to %s" sockname)
