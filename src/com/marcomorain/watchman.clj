@@ -22,7 +22,7 @@
 
 (defn execute-command [watchman command]
   (write-command (:channel watchman) command)
-  (.poll (:queue watchman)))
+  (.poll (:queue watchman) 5 TimeUnit/SECONDS))
 
 (defn- connect-to-channel [sockname]
   (-> sockname
