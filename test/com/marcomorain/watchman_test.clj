@@ -16,4 +16,9 @@
 
 (comment
   ;; Check output:
-  (w/execute-command s ["log-level" "debug"]))
+  (require '[com.marcomorain.watchman :as w] :reload)
+  (def s (w/connect))
+  (w/execute-command s ["log-level" "debug"])
+
+
+  )

@@ -40,6 +40,7 @@
       (parse-string true)
       :sockname))
 
+;; https://github.com/jnr/jnr-unixsocket/blob/master/src/test/java/jnr/unixsocket/example/UnixClient.java
 (defn connect
   ([]
    (connect (get-sockname)))
