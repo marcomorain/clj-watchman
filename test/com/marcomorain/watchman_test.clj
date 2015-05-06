@@ -9,3 +9,11 @@
                          :out)]
     (is (.endsWith socket-type ": socket\n"))))
 
+(deftest can-send-command
+  (let [s (w/connect)]
+    (is (= {:version "3.1.0"}
+           (w/execute-command s ["version"])))))
+
+(comment
+  ;; Check output:
+  (w/execute-command s ["log-level" "debug"]))
