@@ -65,3 +65,59 @@
       :queue queue
       :channel channel})))
 
+
+;; Add the commands
+
+(defn clock [watchman path]
+  (execute-command watchman ["clock" path]))
+
+(defn find [watchman path & patterns]
+  (execute-command watchman (list* "find" path patterns)))
+
+(defn get-config [watchman path]
+  (execute-command watchman ["get-config" path]))
+
+(defn log [watchman level log]
+  (execute-command watchman ["log" level log]))
+
+(defn log-level [watchman level]
+  (execute-command watchman ["log-level" level]))
+
+(defn query [watchman path query]
+  (execute-command watchman ["query" path query]))
+
+(defn since [watchman path clockspec & patterns]
+  (execute-command watchman (list* "since" path clockspec patterns)))
+
+(defn subscribe [watchman path name sub]
+  (execute-command watchman ["subscribe" path name sub]))
+
+(defn trigger [watchman path triggerobj]
+  (execute-command watchman ["trigger" path triggerobj]))
+
+(defn trigger-del [watchman path triggername]
+  (execute-command watchman ["trigger-del" path triggername]))
+
+(defn trigger-list [watchman path triggername]
+  (execute-command watchman ["trigger-list" path]))
+
+(defn unsubscribe [watchman path name]
+  (execute-command watchman ["unsubscribe" path name]))
+
+(defn version [watchman]
+  (execute-command watchman ["version"]))
+
+(defn watch [watchman path]
+  (execute-command watchman ["watch" path]))
+
+(defn watch-del [watchman path]
+  (execute-command watchman ["watch-del" path]))
+
+(defn watch-del-all [watchman]
+  (execute-command watchman ["watch-del-all"]))
+
+(defn watch-list [watchman]
+  (execute-command watchman ["watch-list"]))
+
+(defn watch-project [watchman path]
+  (execute-command watchman ["watch-project" path]))
