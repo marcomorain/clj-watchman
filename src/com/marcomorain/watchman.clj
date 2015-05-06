@@ -21,7 +21,8 @@
     (.write writer byte-buffer)))
 
 (defn execute-command [watchman command]
-  (write-command (:channel watchman) command))
+  (write-command (:channel watchman) command)
+  (.poll (:queue watchman)))
 
 (defn- connect-to-channel [sockname]
   (-> sockname
@@ -36,6 +37,15 @@
       (parse-string true)
       :sockname))
 
+(defn result-reader [reader queue]
+  (fn []
+    (doseq [line (line-seq reader)
+            :let [message (parse-string line true)]]
+      (cond
+        (:log message) (infof "Log: %s" message)
+        (:subscription message) (infof "Subscription: %s" message)
+        :else (.put queue message)))))
+
 (defn connect
   ([]
    (connect (get-sockname)))
@@ -46,11 +56,12 @@
                     Channels/newInputStream
                     InputStreamReader.
                     reader)
-         thread (doto (Thread. (fn [] (doseq [line (line-seq reader)]
-                                        (pprint (parse-string line true)))))
+         queue (LinkedBlockingQueue.)
+         thread (doto (Thread. (result-reader reader queue))
                   (.setDaemon true)
                   (.start))]
      (infof "Connected to %s" sockname)
      {:reader reader
+      :queue queue
       :channel channel})))
 
