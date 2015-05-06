@@ -18,7 +18,9 @@
       (.flush))))
 
 (defn execute-command [watchman command]
+  ;; Write command
   (write-command (:writer watchman) command)
+  ;; Read first result
   (-> watchman
      :reader
      line-seq
