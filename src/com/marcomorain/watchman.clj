@@ -37,31 +37,31 @@
       (parse-string true)
       :sockname))
 
-(defn result-reader [reader queue]
+(defn result-reader [reader queue f]
   ;; The Java thread constructor expects a function with
   ;; zero arguments so we close over reader and queue
   (fn []
     (doseq [line (line-seq reader)
             :let [message (parse-string line true)]]
-      (infof "msg: %s" message)
+      (debugf "msg: %s" message)
       (cond
         ;; Dispatch based on message type
         (:log message) (infof "Log: %s" message)
-        (:subscription message) (infof "Subscription: %s" message)
+        (:subscription message) (f message)
         :else (.put queue message)))))
 
 (defn connect
-  ([]
-   (connect (get-sockname)))
+  ([f]
+   (connect (get-sockname) f))
 
-  ([sockname]
+  ([sockname f]
    (let [channel (connect-to-channel sockname)
          reader (-> channel
                     Channels/newInputStream
                     InputStreamReader.
                     reader)
          queue (LinkedBlockingQueue.)
-         thread (doto (Thread. (result-reader reader queue))
+         thread (doto (Thread. (result-reader reader queue f))
                   (.setDaemon true)
                   (.start))]
      (infof "Connected to %s" sockname)
@@ -72,7 +72,8 @@
 (defmacro defcmd [name params]
   "Create a watchman command with the given signature"
   `(defn ~name ~params
-     (execute-command ~(first params) [~(str name) ~@(rest params)])))
+     (execute-command ~(first params)
+                      [~(str name) ~@(rest params)])))
 
 (defcmd clock [watchman path])
 (defcmd get-config [watchman path])
@@ -91,8 +92,11 @@
 (defcmd watch-list [watchman])
 (defcmd watch-project [watchman path])
 
+;; TODO: these 2 commands take rest-args
+;; find a way to use defcmd for these.
 (defn since [watchman path clockspec & patterns]
   (execute-command watchman (list* "since" path clockspec patterns)))
 
 (defn find [watchman path & patterns]
   (execute-command watchman (list* "find" path patterns)))
+
