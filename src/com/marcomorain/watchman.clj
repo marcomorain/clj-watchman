@@ -41,6 +41,7 @@
   (fn []
     (doseq [line (line-seq reader)
             :let [message (parse-string line true)]]
+      (infof "msg: %s" message)
       (cond
         (:log message) (infof "Log: %s" message)
         (:subscription message) (infof "Subscription: %s" message)
@@ -65,59 +66,37 @@
       :queue queue
       :channel channel})))
 
+(defmacro defcmd [name params]
+  "Create a watchman command with the given signature"
+  `(defn ~name ~params
+     (execute-command ~(first params) [~(str name) ~@(rest params)])))
 
-;; Add the commands
-
-(defn clock [watchman path]
-  (execute-command watchman ["clock" path]))
+(defcmd clock [watchman path])
 
 (defn find [watchman path & patterns]
   (execute-command watchman (list* "find" path patterns)))
 
-(defn get-config [watchman path]
-  (execute-command watchman ["get-config" path]))
-
-(defn log [watchman level log]
-  (execute-command watchman ["log" level log]))
-
-(defn log-level [watchman level]
-  (execute-command watchman ["log-level" level]))
-
-(defn query [watchman path query]
-  (execute-command watchman ["query" path query]))
+(defcmd get-config [watchman path])
+(defcmd log [watchman level log])
+(defcmd log-level [watchman level])
+(defcmd query [watchman path query])
 
 (defn since [watchman path clockspec & patterns]
   (execute-command watchman (list* "since" path clockspec patterns)))
 
-(defn subscribe [watchman path name sub]
-  (execute-command watchman ["subscribe" path name sub]))
+(defcmd subscribe [watchman path name sub])
+(defcmd trigger [watchman path triggerobj])
+(defcmd trigger-del [watchman path triggername])
+(defcmd trigger-list [watchman path triggername])
+(defcmd unsubscribe [watchman path name])
+(defcmd version [watchman])
+(defcmd watch [watchman path])
+(defcmd watch-del [watchman path])
+(defcmd watch-del-all [watchman])
+(defcmd watch-list [watchman])
+(defcmd watch-project [watchman path])
 
-(defn trigger [watchman path triggerobj]
-  (execute-command watchman ["trigger" path triggerobj]))
 
-(defn trigger-del [watchman path triggername]
-  (execute-command watchman ["trigger-del" path triggername]))
 
-(defn trigger-list [watchman path triggername]
-  (execute-command watchman ["trigger-list" path]))
 
-(defn unsubscribe [watchman path name]
-  (execute-command watchman ["unsubscribe" path name]))
 
-(defn version [watchman]
-  (execute-command watchman ["version"]))
-
-(defn watch [watchman path]
-  (execute-command watchman ["watch" path]))
-
-(defn watch-del [watchman path]
-  (execute-command watchman ["watch-del" path]))
-
-(defn watch-del-all [watchman]
-  (execute-command watchman ["watch-del-all"]))
-
-(defn watch-list [watchman]
-  (execute-command watchman ["watch-list"]))
-
-(defn watch-project [watchman path]
-  (execute-command watchman ["watch-project" path]))
