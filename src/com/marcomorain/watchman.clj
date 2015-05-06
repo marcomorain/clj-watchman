@@ -2,7 +2,7 @@
   (:refer-clojure :exclude [find])
   (require [clojure.java.shell :as sh]
            [cheshire.core :refer :all]
-           [clojure.tools.logging :refer (infof)])
+           [clojure.tools.logging :refer (infof debugf)])
   (use [clojure.java.io :as io])
   (import [jnr.unixsocket UnixSocketAddress UnixSocketChannel]
           [java.io PrintWriter InputStreamReader BufferedReader]
@@ -18,16 +18,15 @@
     (:subscription message) (f message)
     :else (.put queue message)))
 
+(defn str->byte-buffer [s]
+  (ByteBuffer/wrap (.getBytes s (Charset/forName "ISO-8859-1"))))
+
 ;; todo type annotation
 ;; todo: don't make a new byte buffer on each command
 (defn write-command [writer command]
   (let [json (str (generate-string command) \newline)
-        json-bytes (.getBytes json (Charset/forName "ISO-8859-1"))
-        byte-buffer (ByteBuffer/wrap json-bytes)
-        _ (infof "Writing command %s" json)
-        n (.write writer byte-buffer)]
-    ;; Assert n here
-    nil))
+        byte-buffer (str->byte-buffer json)]
+    (.write writer byte-buffer)))
 
 (defn execute-command [watchman command]
   (write-command (:channel watchman) command)
@@ -46,7 +45,12 @@
       UnixSocketAddress.
       UnixSocketChannel/open))
 
-(def ^:dynamic *max-queue-length* 4)
+;; Special command - needed to connect
+(defn get-sockname []
+  (-> (sh/sh "watchman" "get-sockname")
+      :out
+      (parse-string true)
+      :sockname))
 
 (defn connect
   ([f]
@@ -57,7 +61,7 @@
                     Channels/newInputStream
                     InputStreamReader.
                     reader)
-         queue (LinkedBlockingQueue. *max-queue-length*)
+         queue (LinkedBlockingQueue.)
          ;; TODO: function to close thread
          thread (doto
                   (Thread. (message-reader queue reader f))
@@ -67,13 +71,6 @@
      {:channel channel
       :queue queue
       :thread thread})))
-
-;; Special command - needed to connect
-(defn get-sockname []
-  (-> (sh/sh "watchman" "get-sockname")
-      :out
-      (parse-string true)
-      :sockname))
 
 ;; Commands - make these from a macro
 (defn get-config [watchman path]
