@@ -12,14 +12,16 @@
           [java.nio.charset Charset]
           [java.nio CharBuffer ByteBuffer]))
 
+(defn str->byte-buffer  [s]
+  (ByteBuffer/wrap (.getBytes s (Charset/forName "ISO-8859-1"))))
+
 (defn write-command [writer command]
-  (let [json (str (generate-string command) \newline)]
-    (doto writer
-      (.print json)
-      (.flush))))
+  (let [json (str (generate-string command) \newline)
+        byte-buffer (str->byte-buffer json)]
+    (.write writer byte-buffer)))
 
 (defn execute-command [watchman command]
-  (write-command (:writer watchman) command))
+  (write-command (:channel watchman) command))
 
 (defn- connect-to-channel [sockname]
   (-> sockname
@@ -44,14 +46,11 @@
                     Channels/newInputStream
                     InputStreamReader.
                     reader)
-         writer (-> channel
-                    Channels/newOutputStream
-                    PrintWriter.)
          thread (doto (Thread. (fn [] (doseq [line (line-seq reader)]
                                         (pprint (parse-string line true)))))
                   (.setDaemon true)
                   (.start))]
      (infof "Connected to %s" sockname)
      {:reader reader
-      :writer writer })))
+      :channel channel})))
 
