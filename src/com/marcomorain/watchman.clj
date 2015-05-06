@@ -72,18 +72,10 @@
      (execute-command ~(first params) [~(str name) ~@(rest params)])))
 
 (defcmd clock [watchman path])
-
-(defn find [watchman path & patterns]
-  (execute-command watchman (list* "find" path patterns)))
-
 (defcmd get-config [watchman path])
 (defcmd log [watchman level log])
 (defcmd log-level [watchman level])
 (defcmd query [watchman path query])
-
-(defn since [watchman path clockspec & patterns]
-  (execute-command watchman (list* "since" path clockspec patterns)))
-
 (defcmd subscribe [watchman path name sub])
 (defcmd trigger [watchman path triggerobj])
 (defcmd trigger-del [watchman path triggername])
@@ -96,7 +88,8 @@
 (defcmd watch-list [watchman])
 (defcmd watch-project [watchman path])
 
+(defn since [watchman path clockspec & patterns]
+  (execute-command watchman (list* "since" path clockspec patterns)))
 
-
-
-
+(defn find [watchman path & patterns]
+  (execute-command watchman (list* "find" path patterns)))
