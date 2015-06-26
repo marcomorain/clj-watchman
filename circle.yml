@@ -1,3 +1,6 @@
+general:
+  artifacts:
+    - target/coverage
 dependencies:
   pre:
     - git clone https://github.com/facebook/watchman.git
@@ -5,3 +8,10 @@ dependencies:
     - ./configure: {pwd: watchman}
     - make: {pwd: watchman}
     - sudo make install: {pwd: watchman}
+test:
+  pre:
+    - mkdir $CIRCLE_TEST_REPORTS/lein
+  override:
+    - lein test-out junit $CIRCLE_TEST_REPORTS/lein/results.xml
+    - lein cloverage
+

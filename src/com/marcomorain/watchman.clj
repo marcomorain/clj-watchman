@@ -2,7 +2,8 @@
   (:refer-clojure :exclude [find])
   (require [clojure.java.shell :as sh]
            [cheshire.core :refer :all]
-           [clojure.tools.logging :refer (infof debugf)])
+           [clojure.tools.logging :refer (infof debugf)]
+           [clojure.pprint :refer (pprint)] )
   (use [clojure.java.io :as io])
   (import [jnr.unixsocket UnixSocketAddress UnixSocketChannel]
           [java.io PrintWriter InputStreamReader BufferedReader]
@@ -11,18 +12,9 @@
           [java.nio.charset Charset]
           [java.nio CharBuffer ByteBuffer]))
 
-(defn on-message
-  [queue message f]
-  (cond
-    (:log message) (infof "Log message: %s" message)
-    (:subscription message) (f message)
-    :else (.put queue message)))
-
-(defn str->byte-buffer [s]
+(defn str->byte-buffer  [s]
   (ByteBuffer/wrap (.getBytes s (Charset/forName "ISO-8859-1"))))
 
-;; todo type annotation
-;; todo: don't make a new byte buffer on each command
 (defn write-command [writer command]
   (let [json (str (generate-string command) \newline)
         byte-buffer (str->byte-buffer json)]
@@ -31,13 +23,6 @@
 (defn execute-command [watchman command]
   (write-command (:channel watchman) command)
   (.poll (:queue watchman) 5 TimeUnit/SECONDS))
-
-(defn- message-reader [queue reader f]
-  (fn []
-    (on-message queue
-                (parse-string (.readLine reader) true)
-                f)
-    (recur)))
 
 (defn- connect-to-channel [sockname]
   (-> sockname
@@ -52,9 +37,23 @@
       (parse-string true)
       :sockname))
 
+(defn result-reader [reader queue f]
+  ;; The Java thread constructor expects a function with
+  ;; zero arguments so we close over reader and queue
+  (fn []
+    (doseq [line (line-seq reader)
+            :let [message (parse-string line true)]]
+      (debugf "msg: %s" message)
+      (cond
+        ;; Dispatch based on message type
+        (:log message) (infof "Log: %s" message)
+        (:subscription message) (f message)
+        :else (.put queue message)))))
+
 (defn connect
   ([f]
    (connect (get-sockname) f))
+
   ([sockname f]
    (let [channel (connect-to-channel sockname)
          reader (-> channel
@@ -62,43 +61,42 @@
                     InputStreamReader.
                     reader)
          queue (LinkedBlockingQueue.)
-         ;; TODO: function to close thread
-         thread (doto
-                  (Thread. (message-reader queue reader f))
+         thread (doto (Thread. (result-reader reader queue f))
                   (.setDaemon true)
                   (.start))]
      (infof "Connected to %s" sockname)
-     {:channel channel
+     {:reader reader
       :queue queue
-      :thread thread})))
+      :channel channel})))
 
-;; Commands - make these from a macro
-(defn get-config [watchman path]
-  (execute-command watchman ["get-config" path]))
+(defmacro defcmd [name params]
+  "Create a watchman command with the given signature"
+  `(defn ~name ~params
+     (execute-command ~(first params)
+                      [~(str name) ~@(rest params)])))
 
-(defn clock [watchman path]
-  (execute-command watchman ["clock" path]))
+(defcmd clock [watchman path])
+(defcmd get-config [watchman path])
+(defcmd log [watchman level log])
+(defcmd log-level [watchman level])
+(defcmd query [watchman path query])
+(defcmd subscribe [watchman path name sub])
+(defcmd trigger [watchman path triggerobj])
+(defcmd trigger-del [watchman path triggername])
+(defcmd trigger-list [watchman path triggername])
+(defcmd unsubscribe [watchman path name])
+(defcmd version [watchman])
+(defcmd watch [watchman path])
+(defcmd watch-del [watchman path])
+(defcmd watch-del-all [watchman])
+(defcmd watch-list [watchman])
+(defcmd watch-project [watchman path])
+
+;; TODO: these 2 commands take rest-args
+;; find a way to use defcmd for these.
+(defn since [watchman path clockspec & patterns]
+  (execute-command watchman (list* "since" path clockspec patterns)))
 
 (defn find [watchman path & patterns]
   (execute-command watchman (list* "find" path patterns)))
 
-(defn log [watchman level log]
-  (execute-command watchman ["log" level log]))
-
-(defn log-level [watchman level]
-  (execute-command watchman ["log-level" level]))
-
-(defn subscribe [watchman path name sub]
-  (execute-command watchman ["subscribe" path name sub]))
-
-(defn unsubscribe [watchman path name]
-  (execute-command watchman ["unsubscribe" path name]))
-
-(defn version [watchman]
-  (execute-command watchman ["version"]))
-
-(defn watch [watchman path]
-  (execute-command watchman ["watch" path]))
-
-(defn watch-list [watchman]
-  (execute-command watchman ["watch-list"]))
